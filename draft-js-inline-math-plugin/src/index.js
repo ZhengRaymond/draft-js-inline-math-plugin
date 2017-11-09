@@ -2,11 +2,88 @@ import decorateComponentWithProps from 'decorate-component-with-props';
 import { Map } from 'immutable';
 import { convertToRaw, EditorState, Modifier } from 'draft-js';
 
+import Math from './Math';
+import inlineMathStrategy from './inlineMathStrategy';
+import inlineMathSpan from './inlineMathSpan';
+import addInlineMath from './modifiers/addInlineMath';
 import './inlineMath.css';
 
+const MATH = '$';
 
 const createInlineMathPlugin = (config) => {
 
+  const blockRendererFn = (contentBlock, { getEditorState }) => {
+    const block_type = contentBlock.getType();
+    console.log('block render');
+    if (block_type === 'atomic') {
+      console.log('atomic');
+      const contentState = getEditorState().getCurrentContent();
+      const entity = block.getEntityAt(0);
+      if (!entity) return null;
+      const entity_type = contentState.getEntity(entity).getType();
+      if (entity_type === 'INLINE_MATH') {
+        return {
+          component: Math,
+          editable: false,
+        };
+      }
+      return null;
+    }
+
+    return null;
+  };
+
+  const keyBindingFn = (e, { getEditorState }) => {
+    if (e.key === MATH) {
+      const editorState = getEditorState();
+      const selectionState = editorState.getSelection();
+
+      // Caret:
+      if (selectionState.isCollapsed()) {
+        const current_block = editorState.getCurrentContent().getBlockForKey(selectionState.getStartKey());
+        const selection_location = selectionState.getStartOffset();
+        const previous_letter = current_block.getText()[selection_location - 1];
+        if (previous_letter === '\\') {
+          return `add-escape-char_${MATH}`;
+        }
+      }
+
+      // Normal insert math:
+      return 'add-inline-math';
+    }
+  }
+
+  const handleKeyCommand = (command) => {
+    const { getEditorState, setEditorState } = store;
+    const parsed = command.split('_');
+    if (parsed[0] === 'add-inline-math') {
+      addInlineMath({ getEditorState, setEditorState });
+      return 'handled';
+    }
+    if (parsed[0] === 'add-escape-char') {
+      const editorState = getEditorState();
+      const selectionState = editorState.getSelection();
+      const selection_location = selectionState.getStartOffset();
+      const updatedSelection = selectionState.merge({
+        anchorOffset: selection_location - 1,
+        focusOffset: selection_location
+      });
+      const contentState = Modifier.replaceText(
+        editorState.getCurrentContent(),
+        updatedSelection,
+        parsed[1],
+      )
+      setEditorState(EditorState.push(editorState, contentState, 'delete-character'));
+    }
+    return 'not-handled';
+  }
+
+  const decorators = [
+      {
+        strategy: inlineMathStrategy,
+        component: inlineMathSpan
+      }
+  ];
 
   const store = {
     getProps: undefined, // a function returning a list of all the props pass into the Editor
@@ -25,6 +102,13 @@ const createInlineMathPlugin = (config) => {
       store.getReadOnly = getReadOnly;
       store.setReadOnly = setReadOnly;
       store.getEditorRef = getEditorRef;
+    },
+    blockRendererFn,
+    keyBindingFn,
+    // handleReturn,
+    handleKeyCommand,
+    // onEscape,
+    decorators
   }
 }
 
