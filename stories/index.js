@@ -33,6 +33,9 @@ import SimpleImageEditor from './Image/SimpleImageEditor';
 import CustomImageEditor from './Image/CustomImageEditor';
 import AddImageEditor from './Image/AddImageEditor';
 
+// InlineMath
+import SimpleInlineMathEditor from './InlineMath/SimpleInlineMathEditor';
+
 // InlineToolbar
 import SimpleInlineToolbarEditor from './InlineToolbar/SimpleInlineToolbarEditor';
 import CustomInlineToolbarEditor from './InlineToolbar/CustomInlineToolbarEditor';
@@ -100,6 +103,9 @@ storiesOf('Image Plugin')
   .add('Editor with Image Plugin', () => <SimpleImageEditor />)
   .add('Editor with Image Plugin and a few others: drag and drop, alignment, resizable, focus', () => <CustomImageEditor />)
   .add('Editor with Image Plugin and Add mechanism', () => <AddImageEditor />);
+
+storiesOf('Inline Math Plugin')
+  .add('Editor with inline-math plugin', () => <SimpleInlineMathEditor />);
 
 storiesOf('Inline Toolbar Plugin')
   .add('Editor with default inline toolbar plugin', () => <SimpleInlineToolbarEditor />)
