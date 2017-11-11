@@ -53,10 +53,10 @@ const createInlineMathPlugin = (config) => {
   }
 
   const handleKeyCommand = (command) => {
-    const { getEditorState, setEditorState } = store;
+    const { getEditorState, setEditorState, setReadOnly } = store;
     const parsed = command.split('_');
     if (parsed[0] === 'add-inline-math') {
-      addInlineMath({ getEditorState, setEditorState });
+      addInlineMath({ getEditorState, setEditorState, setReadOnly });
       return 'handled';
     }
     if (parsed[0] === 'add-escape-char') {
@@ -78,26 +78,70 @@ const createInlineMathPlugin = (config) => {
     return 'not-handled';
   }
 
+  const onTopArrow = (e, { getEditorState, setEditorState, setReadOnly }) => {
+
+  }
+
   const onRightArrow = (e, { getEditorState, setEditorState, setReadOnly }) => {
-    // const editorState = getEditorState();
-    // const selectionState = editorState.getSelection();
-    // console.log(selectionState.getAnchorOffset());
+    const editorState = getEditorState();
+    const selectionState = editorState.getSelection();
+    const currentContent = editorState.getCurrentContent();
+    const blockKey = selectionState.getAnchorKey();
+    const block = currentContent.getBlockForKey(blockKey);
+
+    var selection_location = selectionState.getAnchorOffset();
+    const entityKey = block.getEntityAt(selection_location);
+    if (entityKey && currentContent.getEntity(entityKey).getType() === 'INLINE_MATH') {
+      const entityElement = document.getElementById(`${blockKey}_${entityKey}`)
+      MQ(entityElement).focus();
+      MQ(entityElement).moveToLeftEnd();
+    }
+  }
+
+  const onDownArrow = (e, { getEditorState, setEditorState, setReadOnly }) => {
+    const editorState = store.getEditorState();
+    const selectionState = editorState.getSelection();
+    const currentContent = editorState.getCurrentContent();
+
+    const blockKey = selectionState.getAnchorKey();
+    const block = currentContent.getBlockForKey(blockKey);
+    console.log(`blockKey=${blockKey}`)
+
+    // const editorState = store.getEditorState();
     // const currentContent = editorState.getCurrentContent();
-    // const blockKey = selectionState.getAnchorKey();
-    // const block = currentContent.getBlockForKey(blockKey);
+    // const selectionAfter = currentContent.getSelectionAfter();
     //
-    // var selection_location = selectionState.getAnchorOffset();
-    // const currentKey = block.getEntityAt(selection_location);
-    // const nextKey = block.getEntityAt(selection_location + 1);
-    // if (!currentKey && nextKey && currentContent.getEntity(nextKey).getType() === 'INLINE_MATH') {
-    //   console.log('forcing...');
-    //   setReadOnly(true);
-    //   const entityElement = document.getElementById(`${blockKey}_${nextKey}`)
-    //   console.log(entityElement)
-    //   const mathfield = MQ.MathField(entityElement)
-    //   mathfield.moveToLeftEnd();
-    //   mathfield.focus();
+    // // console.log(selectionAfter.getAnchorOffset());
+    // const blockKey = selectionAfter.getAnchorKey();
+    // const block = currentContent.getBlockForKey(blockKey);
+    // const offset = selectionAfter.getAnchorOffset();
+    // console.log(`offset=${offset}`);
+    // const entityKey = block.getEntityAt(offset);
+    // console.log(`entityKey=${entityKey}`);
+    // if (entityKey && currentContent.getEntity(entityKey).getType() === 'INLINE_MATH') {
+    //   const entityElement = document.getElementById(`${blockKey}_${entityKey}`)
+    //   MQ(entityElement).focus();
+    //   MQ(entityElement).moveToLeftEnd();
     // }
+  }
+
+  const onLeftArrow = (e, { getEditorState, setEditorState, setReadOnly }) => {
+    const editorState = getEditorState();
+    const selectionState = editorState.getSelection();
+    const currentContent = editorState.getCurrentContent();
+    const blockKey = selectionState.getAnchorKey();
+    const block = currentContent.getBlockForKey(blockKey);
+
+    var selection_location = selectionState.getAnchorOffset() - 2;
+    console.log(`selection_location=${selection_location}`);
+    const entityKey = block.getEntityAt(selection_location);
+    console.log(`entityKey=${entityKey}`);
+    if (entityKey && currentContent.getEntity(entityKey).getType() === 'INLINE_MATH') {
+      const entityElement = document.getElementById(`${blockKey}_${entityKey}`)
+      console.log('entityElement=', entityElement);
+      MQ(entityElement).focus();
+      MQ(entityElement).moveToRightEnd();
+    }
   }
 
   const store = {
@@ -115,7 +159,7 @@ const createInlineMathPlugin = (config) => {
       component: inlineMathSpan,
       props: {
         // store
-        getStore: () => store
+        getStore: () => store,
       }
     }
   ];
@@ -132,8 +176,10 @@ const createInlineMathPlugin = (config) => {
     decorators,
     // blockRendererFn,
     keyBindingFn,
+    onTopArrow,
     onRightArrow,
-    // onLeftArrow: handleArrow,
+    onDownArrow,
+    onLeftArrow,
     // handleReturn,
     handleKeyCommand,
     // onEscape,

@@ -1,4 +1,4 @@
-import { EditorState, SelectionState } from 'draft-js';
+  import { EditorState, SelectionState } from 'draft-js';
 import addBlock from './modifiers/addBlock';
 import removeBlock from './modifiers/removeBlock';
 import { DRAFTJS_BLOCK_KEY } from './constants';

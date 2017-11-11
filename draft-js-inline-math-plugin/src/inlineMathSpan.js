@@ -1,114 +1,122 @@
 import React, { Component } from 'react';
-import { EditorState } from 'draft-js';
+import { convertToRaw, SelectionState, EditorState } from 'draft-js';
+import Radium from 'radium';
 
 class inlineMathSpan extends Component {
   constructor(props) {
     super(props);
-    this.state = {
-      editMode: false,
-      text: ''
-    }
     this.onFocus = this.onFocus.bind(this);
     this.onBlur = this.onBlur.bind(this);
+    this.state = {
+      active: false,
+      count: 0
+    };
+    setInterval(() => {
+      console.log(this.state.count);
+      this.setState({...this.state, count: this.state.count + 1});
+    }, 1000);
   }
 
-  // onChange(e) {
-  //   console.log("asdf")
-  //   console.log(e.target.value)
-  //   this.setState({
-  //     ...this.state, text: e.target.value
-  //   })
-  // }
-
   onFocus() {
-    console.log("Focused via onFocus call")
-    const { setReadOnly, getEditorState, setEditorState } = this.props.getStore();
-    // setReadOnly(true);
-    const editorState = getEditorState();
-    const selectionState = editorState.getSelection();
-
-    this.setState({
-      editMode: true
-    });
+    console.log('onFocus')
+    const { setReadOnly } = this.props.getStore();
     setReadOnly(true);
+    this.setState({ active: true });
   }
 
   onBlur(direction) {
-    const { getEditorState, setEditorState, setReadOnly } = this.props.getStore();
+    console.log(`onBlur(${direction})`)
+    const { getEditorState, setEditorState, setReadOnly, getEditorRef } = this.props.getStore();
     setReadOnly(false);
 
-    this.setState({
-      editMode: false
-    });
-
-    if (direction === 1) {
-      console.log("A");
+    if (direction === 1 || direction === -1) {
+      getEditorRef().refs.editor.focus();
       const editorState = getEditorState();
       const selectionState = editorState.getSelection();
-      const contentState = editorState.getCurrentContent();
-
-      const blockKey = selectionState.getAnchorKey()
-      const block = contentState.getBlockForKey(blockKey)
-      const offset = selectionState.getStartOffset() + 1;
-      console.log("OFFSETS:", block.getText().length - 1, offset);
-      if (block.getText().length - 1 === offset) {
-        var newContent = contentState;
-        newContent = Modifier.insertText(
-          newContent,
-          selectionState.merge({
-            anchorOffset: offset,
-            focusOffset: offset
-          }),
-          ' '
-        )
-        console.log("B");
-        setEditorState(EditorState.push(EditorState.moveFocusToEnd(editorState), newContent, 'insert-characters'));
-        console.log("C");
+      const currentContent = editorState.getCurrentContent();
+      var block = currentContent.getBlockForKey(this.blockKey);
+      var offset = 0;
+      var blockKey = selectionState.getAnchorKey();
+      if (block) {
+        const len = block.getText().length;
+        for (var i = 0; i < len; i++) {
+          if (block.getEntityAt(i) === this.props.entityKey) {
+            blockKey = block.getKey();
+            offset = i;
+            break;
+          }
+        }
       }
+      else {
+        block = currentContent.getFirstBlock();
+        while (block) {
+          let len = block.getText().length;
+          for (var i = 0; i < len; i++) {
+            if (block.getEntityAt(i) === this.props.entityKey) {
+              blockKey = block.getKey();
+              offset = i;
+              break;
+            }
+          }
+          block = currentContent.getBlockAfter(block.getKey());
+        }
+      }
+      this.blockKey = blockKey;
+
+      // left --> direction = -1 --> offset = getAnchorOffset
+      // right --> direction = 1 --> offset = getAnchorOffset + 2
+      offset = offset + 2 * (direction === 1);
+      const newSelection = SelectionState.createEmpty(blockKey).merge({
+        anchorOffset: offset,
+        focusOffset: offset
+      });
+      const newState = EditorState.forceSelection(editorState, newSelection);
+      setEditorState(newState);
     }
-    else if (direction === -1) {
-      console.log(getEditorState().getSelection().getAnchorOffset())
-    }
+
+    this.setState({ active: false })
   }
 
   componentDidMount() {
-    // MQ.MathField(this.ele, {
-    //   handlers: {
-    //     edit: (mathfield) => console.log("edited", mathfield),
-    //     enter: (mathfield) => console.log("entered", mathfield),
-    //     moveOutOf: (direction, mathField) => {
-    //       console.log("moved out of", direction, mathField)
-    //       if (direction === -1) {
-    //
-    //       }
-    //       else if (direction === 1) {
-    //
-    //       }
-    //       this.onBlur(direction);
-    //     },
-    //     selectOutOf: (direction, mathField) => console.log("selectedOutOf", direction, mathField),
-    //     deleteOutOf: (direction, mathField) => console.log("deleteOutOf", direction, mathField)
-    //   }
-    // });
+    this.mathfield = MQ.MathField(this.ele, {
+      handlers: {
+        edit: (mathfield) => console.log("edited", mathfield),
+        enter: (mathfield) => this.onBlur(1),
+        moveOutOf: (direction, mathField) => this.onBlur(direction),
+        selectOutOf: (direction, mathField) => console.log("selectedOutOf", direction, mathField),
+        deleteOutOf: (direction, mathField) => this.onBlur(direction),
+      }
+    });
+    this.mathfield.data = this.data;
+    // setInterval(() => console.log(this.data, this.mathfield.data), 1000);
+
+
   }
 
   render() {
     const editorState = this.props.getEditorState();
     const blockKey = editorState.getSelection().getAnchorKey();
+    this.blockKey = blockKey;
     return (
-      <span id={`${blockKey}_${this.props.entityKey}`}
+      <styledMathSpan
+        id={`${blockKey}_${this.props.entityKey}`}
         style={{
-          color: "red",
-          backgroundColor: "#eee"
+          // backgroundColor: this.state.active ? "#dedede" : "#efefef",
+          backgroundColor: this.state.active ? "red" : "#efefef",
+          border: "none",
+          boxShadow: "none",
+          transition: "0.25s ease",
+          ":hover": {
+            backgroundColor: "#dedede",
+            transition: "0.25s ease"
+          }
         }}
         onFocus={this.onFocus}
         onBlur={this.onBlur}
         ref={(ele) => this.ele = ele}
-        >
-        {this.props.children}
-      </span>
+      />
     )
   }
 }
 
-export default inlineMathSpan;
+export default Radium(inlineMathSpan);
