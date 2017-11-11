@@ -4,10 +4,12 @@ import Editor from 'draft-js-plugins-editor';
 import createMentionPlugin, { defaultSuggestionsFilter } from 'draft-js-mention-plugin';
 import editorStyles from './editorStyles.css';
 import mentions from './mentions';
+import createMathjaxPlugin from 'draft-js-mathjax-plugin'
 
+const mathjaxPlugin = createMathjaxPlugin(/* optional configuration object */)
 const mentionPlugin = createMentionPlugin();
 const { MentionSuggestions } = mentionPlugin;
-const plugins = [mentionPlugin];
+const plugins = [mentionPlugin, mathjaxPlugin];
 
 export default class SimpleMentionEditor extends Component {
 

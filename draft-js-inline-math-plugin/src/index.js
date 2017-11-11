@@ -1,6 +1,6 @@
 import decorateComponentWithProps from 'decorate-component-with-props';
 import { Map } from 'immutable';
-import { convertToRaw, EditorState, Modifier } from 'draft-js';
+import { convertToRaw, EditorState, Modifier, getDefaultKeyBinding } from 'draft-js';
 
 import Math from './Math';
 import inlineMathStrategy from './inlineMathStrategy';
@@ -12,26 +12,24 @@ const MATH = '$';
 
 const createInlineMathPlugin = (config) => {
 
-  const blockRendererFn = (contentBlock, { getEditorState }) => {
-    const block_type = contentBlock.getType();
-    console.log('block render');
-    if (block_type === 'atomic') {
-      console.log('atomic');
-      const contentState = getEditorState().getCurrentContent();
-      const entity = block.getEntityAt(0);
-      if (!entity) return null;
-      const entity_type = contentState.getEntity(entity).getType();
-      if (entity_type === 'INLINE_MATH') {
-        return {
-          component: Math,
-          editable: false,
-        };
-      }
-      return null;
-    }
-
-    return null;
-  };
+  // const blockRendererFn = (contentBlock, { getEditorState }) => {
+  //   const block_type = contentBlock.getType();
+  //   if (block_type === 'atomic') {
+  //     const contentState = getEditorState().getCurrentContent();
+  //     const entity = block.getEntityAt(0);
+  //     if (!entity) return null;
+  //     const entity_type = contentState.getEntity(entity).getType();
+  //     // if (entity_type === 'INLINE_MATH') {
+  //     //   return {
+  //     //     component: Math,
+  //     //     editable: false,
+  //     //   };
+  //     // }
+  //     return null;
+  //   }
+  //
+  //   return null;
+  // };
 
   const keyBindingFn = (e, { getEditorState }) => {
     if (e.key === MATH) {
@@ -51,6 +49,7 @@ const createInlineMathPlugin = (config) => {
       // Normal insert math:
       return 'add-inline-math';
     }
+    return getDefaultKeyBinding(e);
   }
 
   const handleKeyCommand = (command) => {
@@ -74,16 +73,32 @@ const createInlineMathPlugin = (config) => {
         parsed[1],
       )
       setEditorState(EditorState.push(editorState, contentState, 'delete-character'));
+      return 'handled'
     }
     return 'not-handled';
   }
 
-  const decorators = [
-      {
-        strategy: inlineMathStrategy,
-        component: inlineMathSpan
-      }
-  ];
+  const onRightArrow = (e, { getEditorState, setEditorState, setReadOnly }) => {
+    // const editorState = getEditorState();
+    // const selectionState = editorState.getSelection();
+    // console.log(selectionState.getAnchorOffset());
+    // const currentContent = editorState.getCurrentContent();
+    // const blockKey = selectionState.getAnchorKey();
+    // const block = currentContent.getBlockForKey(blockKey);
+    //
+    // var selection_location = selectionState.getAnchorOffset();
+    // const currentKey = block.getEntityAt(selection_location);
+    // const nextKey = block.getEntityAt(selection_location + 1);
+    // if (!currentKey && nextKey && currentContent.getEntity(nextKey).getType() === 'INLINE_MATH') {
+    //   console.log('forcing...');
+    //   setReadOnly(true);
+    //   const entityElement = document.getElementById(`${blockKey}_${nextKey}`)
+    //   console.log(entityElement)
+    //   const mathfield = MQ.MathField(entityElement)
+    //   mathfield.moveToLeftEnd();
+    //   mathfield.focus();
+    // }
+  }
 
   const store = {
     getProps: undefined, // a function returning a list of all the props pass into the Editor
@@ -94,6 +109,17 @@ const createInlineMathPlugin = (config) => {
     getEditorRef: undefined
   };
 
+  const decorators = [
+    {
+      strategy: inlineMathStrategy,
+      component: inlineMathSpan,
+      props: {
+        // store
+        getStore: () => store
+      }
+    }
+  ];
+
   return {
     initialize: ({ getProps, setEditorState, getEditorState, getReadOnly, setReadOnly, getEditorRef }) => {
       store.getProps = getProps;
@@ -103,12 +129,14 @@ const createInlineMathPlugin = (config) => {
       store.setReadOnly = setReadOnly;
       store.getEditorRef = getEditorRef;
     },
-    blockRendererFn,
+    decorators,
+    // blockRendererFn,
     keyBindingFn,
+    onRightArrow,
+    // onLeftArrow: handleArrow,
     // handleReturn,
     handleKeyCommand,
     // onEscape,
-    decorators
   }
 }
 

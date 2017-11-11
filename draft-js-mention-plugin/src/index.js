@@ -134,7 +134,7 @@ export default (config = {}) => {
       store.getEditorState = getEditorState;
       store.setEditorState = setEditorState;
     },
-
+    keyBindingFn: (e) => console.log(e.key),
     onDownArrow: (keyboardEvent) => callbacks.onDownArrow && callbacks.onDownArrow(keyboardEvent),
     onTab: (keyboardEvent) => callbacks.onTab && callbacks.onTab(keyboardEvent),
     onUpArrow: (keyboardEvent) => callbacks.onUpArrow && callbacks.onUpArrow(keyboardEvent),

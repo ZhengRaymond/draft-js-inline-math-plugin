@@ -7,23 +7,51 @@ const addInlineMath = ({ getEditorState, setEditorState }) => {
 
   // nice and simple. Insert a new Math entity
   if (selectionState.isCollapsed()) {
-    const raw_math = '123';
+    const raw_math = '';
     // insert a math entity
     const contentStateWithEntity = editorState.getCurrentContent().createEntity(
-      'INLINE_MATH', 'IMMUTABLE', { raw_math }
+      'INLINE_MATH', 'MUTABLE', { raw_math }
     );
 
     const entityKey = contentState.getLastCreatedEntityKey();
-
-    const newContent = Modifier.insertText(
-      contentState,
+    const offset = selectionState.getAnchorOffset();
+    var newContent = contentState;
+    newContent = Modifier.insertText(
+      newContent,
       selectionState,
-      '\t',
+      ' '
+    )
+    newContent = Modifier.insertText(
+      newContent,
+      selectionState.merge({
+        anchorOffset: offset + 1,
+        focusOffset: offset + 1,
+      }),
+      ' ',
       undefined,
       entityKey
     )
+    // const block = contentState.getBlockForKey(selectionState.getAnchorKey());
+    // console.log("OFFSETS:", offset,block.getText().length - 1)
+    // if (offset === block.getText().length) {
+    //   newContent = Modifier.insertText(
+    //     newContent,
+    //     selectionState.merge({
+    //       anchorOffset: offset + 2,
+    //       focusOffset: offset + 2
+    //     }),
+    //     ' '
+    //   )
+    // }
 
-    setEditorState(EditorState.push(editorState, newContent, 'apply-entity'));
+    const newSelection = selectionState.merge({
+      anchorOffset: offset,
+      focusOffset: offset ,
+    });
+    const newEditorState = EditorState.forceSelection(editorState, newSelection);
+
+    // setEditorState(EditorState.push(editorState, newContent, 'insert-characters'));
+    setEditorState(EditorState.push(newEditorState, newContent, 'insert-characters'));
   }
   // convert everything in between into math entities, then shift selection to end of last entity.
   else {
