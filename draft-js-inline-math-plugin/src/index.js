@@ -31,10 +31,11 @@ const createInlineMathPlugin = (config) => {
   //   return null;
   // };
 
-  const keyBindingFn = (e, { getEditorState }) => {
+  const keyBindingFn = (e, { getEditorState, setEditorState, setReadOnly }) => {
+    const editorState = getEditorState();
+    const selectionState = editorState.getSelection();
+    const currentContent = editorState.getCurrentContent();
     if (e.key === MATH) {
-      const editorState = getEditorState();
-      const selectionState = editorState.getSelection();
 
       // Caret:
       if (selectionState.isCollapsed()) {
@@ -49,7 +50,42 @@ const createInlineMathPlugin = (config) => {
       // Normal insert math:
       return 'add-inline-math';
     }
+    if (e.key === 'Backspace') {
+      // const currentContent = editorState.getCurrentContent();
+      // const blockKey = selectionState.getAnchorKey();
+      // const block = currentContent.getBlockForKey(blockKey);
+      //
+      // var selection_location = selectionState.getAnchorOffset();
+      // const entityKey = block.getEntityAt(selection_location - 2);
+      // console.log("A")
+      // if (entityKey && currentContent.getEntity(entityKey).getType() === 'INLINE_MATH') {
+      //   console.log("B")
+      //   const entityElement = document.getElementById(`${blockKey}_${entityKey}`)
+      //   console.log(MQ(entityElement).latex(), MQ(entityElement).latex().length)
+      //   if (!MQ(entityElement).latex().length === 0) {
+      //     console.log("C")
+      onLeftArrow(e, { getEditorState, setEditorState, setReadOnly });
+      const entityElement = afterEntity(editorState, selectionState, currentContent);
+      if (entityElement) {
+        return 'handled'
+      }
+    }
     return getDefaultKeyBinding(e);
+  }
+
+  const afterEntity = (editorState, selectionState, currentContent) => {
+    const blockKey = selectionState.getAnchorKey();
+    const block = currentContent.getBlockForKey(blockKey);
+
+    var selection_location = selectionState.getAnchorOffset() - 2;
+    if (selection_location < -1) {
+      return;
+    }
+    const entityKey = block.getEntityAt(selection_location);
+    if (entityKey && currentContent.getEntity(entityKey).getType() === 'INLINE_MATH') {
+      return document.getElementById(`${blockKey}_${entityKey}`);
+    }
+    return null;
   }
 
   const handleKeyCommand = (command) => {
@@ -83,6 +119,7 @@ const createInlineMathPlugin = (config) => {
   }
 
   const onRightArrow = (e, { getEditorState, setEditorState, setReadOnly }) => {
+    console.log("KEY:", e.key)
     const editorState = getEditorState();
     const selectionState = editorState.getSelection();
     const currentContent = editorState.getCurrentContent();
@@ -90,7 +127,7 @@ const createInlineMathPlugin = (config) => {
     const block = currentContent.getBlockForKey(blockKey);
 
     var selection_location = selectionState.getAnchorOffset();
-    const entityKey = block.getEntityAt(selection_location);
+    const entityKey = block.getEntityAt(selection_location + 1);
     if (entityKey && currentContent.getEntity(entityKey).getType() === 'INLINE_MATH') {
       const entityElement = document.getElementById(`${blockKey}_${entityKey}`)
       MQ(entityElement).focus();
@@ -129,16 +166,8 @@ const createInlineMathPlugin = (config) => {
     const editorState = getEditorState();
     const selectionState = editorState.getSelection();
     const currentContent = editorState.getCurrentContent();
-    const blockKey = selectionState.getAnchorKey();
-    const block = currentContent.getBlockForKey(blockKey);
-
-    var selection_location = selectionState.getAnchorOffset() - 2;
-    console.log(`selection_location=${selection_location}`);
-    const entityKey = block.getEntityAt(selection_location);
-    console.log(`entityKey=${entityKey}`);
-    if (entityKey && currentContent.getEntity(entityKey).getType() === 'INLINE_MATH') {
-      const entityElement = document.getElementById(`${blockKey}_${entityKey}`)
-      console.log('entityElement=', entityElement);
+    const entityElement = afterEntity(editorState, selectionState, currentContent);
+    if (entityElement) {
       MQ(entityElement).focus();
       MQ(entityElement).moveToRightEnd();
     }
@@ -153,12 +182,33 @@ const createInlineMathPlugin = (config) => {
     getEditorRef: undefined
   };
 
+  // var mathFields = {};
+  var fieldStash = [];
+
+  // const addField = (id, entityKey) => {
+  //   mathfields[id] = entityKey;
+  // }
+
+  const stashField = (id, entityKey, mathData) => {
+    fieldStash.push({
+      id,
+      entityKey,
+      mathData
+    });
+  }
+
+  const popField = () => {
+    return fieldStash.shift();
+  }
+
   const decorators = [
     {
       strategy: inlineMathStrategy,
       component: inlineMathSpan,
       props: {
-        // store
+        // addField,
+        stashField,
+        popField,
         getStore: () => store,
       }
     }

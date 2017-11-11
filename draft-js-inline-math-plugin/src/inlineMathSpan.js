@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { convertToRaw, SelectionState, EditorState } from 'draft-js';
+import { convertToRaw, SelectionState, EditorState, Modifier } from 'draft-js';
 import Radium from 'radium';
 
 class inlineMathSpan extends Component {
@@ -7,14 +7,16 @@ class inlineMathSpan extends Component {
     super(props);
     this.onFocus = this.onFocus.bind(this);
     this.onBlur = this.onBlur.bind(this);
+    this.exitLeft = this.exitLeft.bind(this);
     this.state = {
       active: false,
       count: 0
     };
-    setInterval(() => {
-      console.log(this.state.count);
-      this.setState({...this.state, count: this.state.count + 1});
-    }, 1000);
+    console.log(props);
+    // setInterval(() => {
+    //   console.log(this.state.count);
+    //   this.setState({...this.state, count: this.state.count + 1});
+    // }, 1000);
   }
 
   onFocus() {
@@ -24,16 +26,78 @@ class inlineMathSpan extends Component {
     this.setState({ active: true });
   }
 
-  onBlur(direction) {
+  componentWillUnmount() {
+    console.log("unmounting")
+  }
+
+  exitLeft(editorState, selectionState, setReadOnly, getEditorRef) {
+    setReadOnly(false);
+    const ref = getEditorRef();
+    if (ref) {
+      ref.refs.editor.focus();
+    }
+
+    var offset = selectionState.getAnchorOffset() - 2;
+    offset = offset * (offset > 0);
+    const newSelection = selectionState.merge({
+      anchorOffset: offset,
+      focusOffset: offset
+    })
+
+    return EditorState.forceSelection(editorState, newSelection);
+  }
+
+  deleteOutOf(direction, mathField) {
+    // const { getEditorState, setEditorState, setReadOnly, getEditorRef } = this.props.getStore();
+    // if (mathField.latex().length === 0) {
+    //   const editorState = getEditorState();
+    //   const selectionState = editorState.getSelection();
+    //   const currentContent = editorState.getCurrentContent();
+    //   console.log("OFFSET0", selectionState.getAnchorOffset());
+    //   var newState = this.exitLeft(editorState, selectionState, setReadOnly, getEditorRef)
+    //
+    //   const offset = selectionState.getAnchorOffset();
+    //   console.log("OFFSET1", offset);
+    //   var newContent = Modifier.applyEntity(
+    //     currentContent,
+    //     selectionState.merge({
+    //       anchorOffset: offset - 1,
+    //       focusOffset: offset
+    //     }),
+    //     null
+    //   );
+    //   // const newSelection = selectionState.merge({
+    //   //   anchorOffset: offset,
+    //   //   focusOffset: offset
+    //   // })
+    //   // console.log("OFFSET", offset);
+    //
+    //   // newState = EditorState.forceSelection(newState, newSelection);
+    //
+    //   console.log("OFFSET2", offset);
+    //   setEditorState(EditorState.push(newState, newContent, 'delete-character'));
+    //   console.log("OFFSET3", offset);
+    // }
+    // else {
+      // this.onBlur(direction, true);
+    // }
+    this.onBlur(direction, mathField);
+  }
+
+  onBlur(direction, remove) {
     console.log(`onBlur(${direction})`)
     const { getEditorState, setEditorState, setReadOnly, getEditorRef } = this.props.getStore();
     setReadOnly(false);
 
     if (direction === 1 || direction === -1) {
+      /* re-focus main editor */
       getEditorRef().refs.editor.focus();
+
       const editorState = getEditorState();
       const selectionState = editorState.getSelection();
-      const currentContent = editorState.getCurrentContent();
+      var currentContent = editorState.getCurrentContent();
+
+      /* find blockKey, entityKey, and offset */
       var block = currentContent.getBlockForKey(this.blockKey);
       var offset = 0;
       var blockKey = selectionState.getAnchorKey();
@@ -63,17 +127,58 @@ class inlineMathSpan extends Component {
       }
       this.blockKey = blockKey;
 
-      // left --> direction = -1 --> offset = getAnchorOffset
-      // right --> direction = 1 --> offset = getAnchorOffset + 2
-      offset = offset + 2 * (direction === 1);
+      //^^^ offset = beginning of entity
+      offset = offset + 1;
+      //vvv offset = entity
+
+      // if moving forward and at end, insert space to let user exit mathfield.
+      if (direction === 1 && offset === block.getText().length) {
+        var newContent = Modifier.insertText(
+          currentContent,
+          selectionState.merge({
+            anchorOffset: offset,
+            focusOffset: offset
+          }),
+          ' '
+        )
+      }
+
+      // if deleting out of empty mathfield, delete the field
+      if (remove && direction === -1 && remove.latex().length === 0) {
+        var deleteContent = Modifier.replaceText(
+          currentContent,
+          selectionState.merge({
+            anchorOffset: offset - 2,
+            focusOffset: offset + 1
+          }),
+          ''
+        );
+      }
+
+      // Move selectionState to location right before entity.
+      // offset = beginning of entity if left/direction = -1
+      // offset = end of entity if right/direction = 1
+      offset = offset + direction;
+      if (direction === -1 && offset > 0) {
+        offset -= 1;
+      }
       const newSelection = SelectionState.createEmpty(blockKey).merge({
         anchorOffset: offset,
         focusOffset: offset
       });
       const newState = EditorState.forceSelection(editorState, newSelection);
-      setEditorState(newState);
-    }
 
+      // setEditorState to correct value
+      if (deleteContent) {
+        setEditorState(EditorState.push(newState, deleteContent, 'delete-character'));
+      }
+      else if (newContent) {
+        setEditorState(EditorState.push(newState, newContent, 'insert-characters'));
+      }
+      else {
+        setEditorState(newState);
+      }
+    }
     this.setState({ active: false })
   }
 
@@ -84,13 +189,10 @@ class inlineMathSpan extends Component {
         enter: (mathfield) => this.onBlur(1),
         moveOutOf: (direction, mathField) => this.onBlur(direction),
         selectOutOf: (direction, mathField) => console.log("selectedOutOf", direction, mathField),
-        deleteOutOf: (direction, mathField) => this.onBlur(direction),
+        deleteOutOf: (direction, mathField) => this.deleteOutOf(direction, mathField),
       }
     });
     this.mathfield.data = this.data;
-    // setInterval(() => console.log(this.data, this.mathfield.data), 1000);
-
-
   }
 
   render() {
