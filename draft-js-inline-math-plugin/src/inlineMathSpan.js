@@ -1,5 +1,5 @@
 import React, { Component } from 'react';
-import { convertToRaw, SelectionState, EditorState, Modifier } from 'draft-js';
+import { Entity, convertToRaw, SelectionState, EditorState, Modifier } from 'draft-js';
 import Radium from 'radium';
 
 class inlineMathSpan extends Component {
@@ -7,95 +7,72 @@ class inlineMathSpan extends Component {
     super(props);
     this.onFocus = this.onFocus.bind(this);
     this.onBlur = this.onBlur.bind(this);
-    this.exitLeft = this.exitLeft.bind(this);
-    this.state = {
-      active: false,
-      count: 0
-    };
-    console.log(props);
-    // setInterval(() => {
-    //   console.log(this.state.count);
-    //   this.setState({...this.state, count: this.state.count + 1});
-    // }, 1000);
+    this.moveOutOf = this.moveOutOf.bind(this);
+    // this.exitLeft = this.exitLeft.bind(this);
+    this.decorate = this.decorate.bind(this);
   }
 
   onFocus() {
     console.log('onFocus')
+    console.log(this.props.entityKey);
     const { setReadOnly } = this.props.getStore();
     setReadOnly(true);
-    this.setState({ active: true });
   }
 
-  componentWillUnmount() {
-    console.log("unmounting")
+  // exitLeft(editorState, selectionState, setReadOnly, getEditorRef) {
+  //   setReadOnly(false);
+  //   const ref = getEditorRef();
+  //   if (ref) {
+  //     ref.refs.editor.focus();
+  //   }
+  //
+  //   var offset = selectionState.getAnchorOffset() - 2;
+  //   offset = offset * (offset > 0);
+  //   const newSelection = selectionState.merge({
+  //     anchorOffset: offset,
+  //     focusOffset: offset
+  //   })
+  //
+  //   return EditorState.forceSelection(editorState, newSelection);
+  // }
+
+  // deleteOutOf(direction, mathField) {
+  //   this.decorate(
+  //     [ this.onBlur,    [ ]                    ],
+  //     [ this.moveOutOf, [direction, mathField] ]
+  //   );
+  // }
+
+  // decorate receives tuples (arrays), tuple[0] = function, tuple[1] = args.
+  // calls each function which returns a new editorState, then sets the final editorState.
+  // this prevents race conditions
+  decorate() {
+    const { getEditorState, setEditorState } = this.props.getStore();
+
+    var editorState = getEditorState();
+    var selectionState = editorState.getSelection();
+    var currentContent = editorState.getCurrentContent();
+
+    var args = Array.prototype.slice.call(arguments, 1);
+    editorState = arguments[0].call(this, editorState, selectionState, currentContent, ...args)
+
+    setEditorState(editorState);
   }
 
-  exitLeft(editorState, selectionState, setReadOnly, getEditorRef) {
+  onBlur(editorState, selectionState, currentContent) {
+    const { setReadOnly, getEditorRef } = this.props.getStore();
     setReadOnly(false);
-    const ref = getEditorRef();
-    if (ref) {
-      ref.refs.editor.focus();
-    }
+    getEditorRef().refs.editor.focus();
 
-    var offset = selectionState.getAnchorOffset() - 2;
-    offset = offset * (offset > 0);
-    const newSelection = selectionState.merge({
-      anchorOffset: offset,
-      focusOffset: offset
-    })
-
-    return EditorState.forceSelection(editorState, newSelection);
+    currentContent = currentContent.mergeEntityData(this.props.entityKey, { raw_math: this.mathfield.latex() });
+    editorState = EditorState.push(editorState, currentContent, 'change-block-data');
+    return editorState;
   }
 
-  deleteOutOf(direction, mathField) {
-    // const { getEditorState, setEditorState, setReadOnly, getEditorRef } = this.props.getStore();
-    // if (mathField.latex().length === 0) {
-    //   const editorState = getEditorState();
-    //   const selectionState = editorState.getSelection();
-    //   const currentContent = editorState.getCurrentContent();
-    //   console.log("OFFSET0", selectionState.getAnchorOffset());
-    //   var newState = this.exitLeft(editorState, selectionState, setReadOnly, getEditorRef)
-    //
-    //   const offset = selectionState.getAnchorOffset();
-    //   console.log("OFFSET1", offset);
-    //   var newContent = Modifier.applyEntity(
-    //     currentContent,
-    //     selectionState.merge({
-    //       anchorOffset: offset - 1,
-    //       focusOffset: offset
-    //     }),
-    //     null
-    //   );
-    //   // const newSelection = selectionState.merge({
-    //   //   anchorOffset: offset,
-    //   //   focusOffset: offset
-    //   // })
-    //   // console.log("OFFSET", offset);
-    //
-    //   // newState = EditorState.forceSelection(newState, newSelection);
-    //
-    //   console.log("OFFSET2", offset);
-    //   setEditorState(EditorState.push(newState, newContent, 'delete-character'));
-    //   console.log("OFFSET3", offset);
-    // }
-    // else {
-      // this.onBlur(direction, true);
-    // }
-    this.onBlur(direction, mathField);
-  }
-
-  onBlur(direction, remove) {
-    console.log(`onBlur(${direction})`)
-    const { getEditorState, setEditorState, setReadOnly, getEditorRef } = this.props.getStore();
-    setReadOnly(false);
-
+  moveOutOf(editorState, selectionState, currentContent, direction, remove) {
+    editorState = this.onBlur(editorState, selectionState, currentContent);
     if (direction === 1 || direction === -1) {
       /* re-focus main editor */
-      getEditorRef().refs.editor.focus();
-
-      const editorState = getEditorState();
-      const selectionState = editorState.getSelection();
-      var currentContent = editorState.getCurrentContent();
 
       /* find blockKey, entityKey, and offset */
       var block = currentContent.getBlockForKey(this.blockKey);
@@ -170,35 +147,51 @@ class inlineMathSpan extends Component {
 
       // setEditorState to correct value
       if (deleteContent) {
-        setEditorState(EditorState.push(newState, deleteContent, 'delete-character'));
+        return EditorState.push(newState, deleteContent, 'delete-character');
       }
-      else if (newContent) {
-        setEditorState(EditorState.push(newState, newContent, 'insert-characters'));
+      if (newContent) {
+        return EditorState.push(newState, newContent, 'insert-characters');
       }
-      else {
-        setEditorState(newState);
-      }
+      return newState
     }
-    this.setState({ active: false })
   }
 
   componentDidMount() {
-    this.mathfield = MQ.MathField(this.ele, {
+    const element = document.getElementById(`${this.blockKey}_${this.props.entityKey}`);
+    const mathfield = MQ.MathField(element, {
       handlers: {
-        edit: (mathfield) => console.log("edited", mathfield),
-        enter: (mathfield) => this.onBlur(1),
-        moveOutOf: (direction, mathField) => this.onBlur(direction),
-        selectOutOf: (direction, mathField) => console.log("selectedOutOf", direction, mathField),
-        deleteOutOf: (direction, mathField) => this.deleteOutOf(direction, mathField),
+        // edit: (mathfield) => console.log("edited", mathfield),
+        // selectOutOf: (direction, mathField) => console.log("selectedOutOf", direction, mathField),
+        enter: (mathfield) => this.decorate(this.moveOutOf, 1),
+        moveOutOf: (direction, mathField) => this.decorate(this.moveOutOf, direction),
+        deleteOutOf: (direction, mathField) => this.decorate(this.moveOutOf, -1, mathField)
       }
     });
-    this.mathfield.data = this.data;
+
+    setInterval(() => {
+      const editorState = this.props.getEditorState();
+      const currentContent = editorState.getCurrentContent();
+      const data = currentContent.getEntity(this.props.entityKey).getData();
+      // console.log(this.props.entityKey, "prelatex:", mathfield.latex());
+      // console.log(this.props.entityKey, data.raw_math);
+      mathfield.latex(data.raw_math);
+      this.mathfield = mathfield;
+    }, 500);
+
+    const editorState = this.props.getEditorState();
+    const currentContent = editorState.getCurrentContent();
+    const data = currentContent.getEntity(this.props.entityKey).getData();
+    // console.log(this.props.entityKey, "prelatex:", mathfield.latex());
+    // console.log(this.props.entityKey, data.raw_math);
+    mathfield.latex(data.raw_math);
+    this.mathfield = mathfield;
   }
 
   render() {
     const editorState = this.props.getEditorState();
     const blockKey = editorState.getSelection().getAnchorKey();
     this.blockKey = blockKey;
+
     return (
       <styledMathSpan
         id={`${blockKey}_${this.props.entityKey}`}
@@ -214,9 +207,9 @@ class inlineMathSpan extends Component {
           }
         }}
         onFocus={this.onFocus}
-        onBlur={this.onBlur}
-        ref={(ele) => this.ele = ele}
-      />
+        onBlur={() => this.decorate(this.onBlur)}
+      >
+      </styledMathSpan>
     )
   }
 }

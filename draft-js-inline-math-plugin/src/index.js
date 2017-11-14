@@ -127,7 +127,8 @@ const createInlineMathPlugin = (config) => {
     const block = currentContent.getBlockForKey(blockKey);
 
     var selection_location = selectionState.getAnchorOffset();
-    const entityKey = block.getEntityAt(selection_location + 1);
+    const entityKey = block.getEntityAt(selection_location + 1
+    );
     if (entityKey && currentContent.getEntity(entityKey).getType() === 'INLINE_MATH') {
       const entityElement = document.getElementById(`${blockKey}_${entityKey}`)
       MQ(entityElement).focus();
@@ -222,6 +223,29 @@ const createInlineMathPlugin = (config) => {
       store.getReadOnly = getReadOnly;
       store.setReadOnly = setReadOnly;
       store.getEditorRef = getEditorRef;
+      setInterval(() => {
+        const editorState = getEditorState();
+        const currentContent = editorState.getCurrentContent();
+        var block = currentContent.getFirstBlock();
+        var blockKey;
+        if (block) {
+          blockKey = block.getKey();
+        }
+        while (block) {
+          var len = block.getText().length;
+          for (var i = 0 ; i < len; i++) {
+            var entityKey = block.getEntityAt(i);
+            if (entityKey) {
+              var entity = currentContent.getEntity(entityKey);
+              console.log(`blockKey_entityKey: entity.data = ${blockKey}_${entityKey}: ${entity.getData().raw_math}`)
+            }
+          }
+          block = currentContent.getBlockAfter(blockKey);
+          if (block) {
+            blockKey = block.getKey();
+          }
+        }
+      }, 1000);
     },
     decorators,
     // blockRendererFn,
