@@ -51,19 +51,6 @@ const createInlineMathPlugin = (config) => {
       return 'add-inline-math';
     }
     if (e.key === 'Backspace') {
-      // const currentContent = editorState.getCurrentContent();
-      // const blockKey = selectionState.getAnchorKey();
-      // const block = currentContent.getBlockForKey(blockKey);
-      //
-      // var selection_location = selectionState.getAnchorOffset();
-      // const entityKey = block.getEntityAt(selection_location - 2);
-      // console.log("A")
-      // if (entityKey && currentContent.getEntity(entityKey).getType() === 'INLINE_MATH') {
-      //   console.log("B")
-      //   const entityElement = document.getElementById(`${blockKey}_${entityKey}`)
-      //   console.log(MQ(entityElement).latex(), MQ(entityElement).latex().length)
-      //   if (!MQ(entityElement).latex().length === 0) {
-      //     console.log("C")
       onLeftArrow(e, { getEditorState, setEditorState, setReadOnly });
       const entityElement = afterEntity(editorState, selectionState, currentContent);
       if (entityElement) {
@@ -149,13 +136,10 @@ const createInlineMathPlugin = (config) => {
     // const currentContent = editorState.getCurrentContent();
     // const selectionAfter = currentContent.getSelectionAfter();
     //
-    // // console.log(selectionAfter.getAnchorOffset());
     // const blockKey = selectionAfter.getAnchorKey();
     // const block = currentContent.getBlockForKey(blockKey);
     // const offset = selectionAfter.getAnchorOffset();
-    // console.log(`offset=${offset}`);
     // const entityKey = block.getEntityAt(offset);
-    // console.log(`entityKey=${entityKey}`);
     // if (entityKey && currentContent.getEntity(entityKey).getType() === 'INLINE_MATH') {
     //   const entityElement = document.getElementById(`${blockKey}_${entityKey}`)
     //   MQ(entityElement).focus();
@@ -186,10 +170,6 @@ const createInlineMathPlugin = (config) => {
   // var mathFields = {};
   var fieldStash = [];
 
-  // const addField = (id, entityKey) => {
-  //   mathfields[id] = entityKey;
-  // }
-
   const stashField = (id, entityKey, mathData) => {
     fieldStash.push({
       id,
@@ -207,7 +187,6 @@ const createInlineMathPlugin = (config) => {
       strategy: inlineMathStrategy,
       component: inlineMathSpan,
       props: {
-        // addField,
         stashField,
         popField,
         getStore: () => store,
@@ -223,29 +202,6 @@ const createInlineMathPlugin = (config) => {
       store.getReadOnly = getReadOnly;
       store.setReadOnly = setReadOnly;
       store.getEditorRef = getEditorRef;
-      setInterval(() => {
-        const editorState = getEditorState();
-        const currentContent = editorState.getCurrentContent();
-        var block = currentContent.getFirstBlock();
-        var blockKey;
-        if (block) {
-          blockKey = block.getKey();
-        }
-        while (block) {
-          var len = block.getText().length;
-          for (var i = 0 ; i < len; i++) {
-            var entityKey = block.getEntityAt(i);
-            if (entityKey) {
-              var entity = currentContent.getEntity(entityKey);
-              console.log(`blockKey_entityKey: entity.data = ${blockKey}_${entityKey}: ${entity.getData().raw_math}`)
-            }
-          }
-          block = currentContent.getBlockAfter(blockKey);
-          if (block) {
-            blockKey = block.getKey();
-          }
-        }
-      }, 1000);
     },
     decorators,
     // blockRendererFn,

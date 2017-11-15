@@ -13,35 +13,9 @@ class inlineMathSpan extends Component {
   }
 
   onFocus() {
-    console.log('onFocus')
-    console.log(this.props.entityKey);
     const { setReadOnly } = this.props.getStore();
     setReadOnly(true);
   }
-
-  // exitLeft(editorState, selectionState, setReadOnly, getEditorRef) {
-  //   setReadOnly(false);
-  //   const ref = getEditorRef();
-  //   if (ref) {
-  //     ref.refs.editor.focus();
-  //   }
-  //
-  //   var offset = selectionState.getAnchorOffset() - 2;
-  //   offset = offset * (offset > 0);
-  //   const newSelection = selectionState.merge({
-  //     anchorOffset: offset,
-  //     focusOffset: offset
-  //   })
-  //
-  //   return EditorState.forceSelection(editorState, newSelection);
-  // }
-
-  // deleteOutOf(direction, mathField) {
-  //   this.decorate(
-  //     [ this.onBlur,    [ ]                    ],
-  //     [ this.moveOutOf, [direction, mathField] ]
-  //   );
-  // }
 
   // decorate receives tuples (arrays), tuple[0] = function, tuple[1] = args.
   // calls each function which returns a new editorState, then sets the final editorState.
@@ -168,23 +142,22 @@ class inlineMathSpan extends Component {
       }
     });
 
-    setInterval(() => {
-      const editorState = this.props.getEditorState();
-      const currentContent = editorState.getCurrentContent();
-      const data = currentContent.getEntity(this.props.entityKey).getData();
-      // console.log(this.props.entityKey, "prelatex:", mathfield.latex());
-      // console.log(this.props.entityKey, data.raw_math);
-      mathfield.latex(data.raw_math);
-      this.mathfield = mathfield;
-    }, 500);
-
     const editorState = this.props.getEditorState();
     const currentContent = editorState.getCurrentContent();
     const data = currentContent.getEntity(this.props.entityKey).getData();
-    // console.log(this.props.entityKey, "prelatex:", mathfield.latex());
-    // console.log(this.props.entityKey, data.raw_math);
     mathfield.latex(data.raw_math);
+    this.data = data.raw_math;
     this.mathfield = mathfield;
+  }
+
+  componentDidUpdate() {
+    if (this.mathfield) {
+      const editorState = this.props.getEditorState();
+      const currentContent = editorState.getCurrentContent();
+      const data = currentContent.getEntity(this.props.entityKey).getData();
+
+      this.mathfield.latex(data.raw_math);
+    }
   }
 
   render() {
