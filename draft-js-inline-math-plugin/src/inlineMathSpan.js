@@ -10,6 +10,7 @@ class inlineMathSpan extends Component {
     this.moveOutOf = this.moveOutOf.bind(this);
     // this.exitLeft = this.exitLeft.bind(this);
     this.decorate = this.decorate.bind(this);
+    this.onKeyDown = this.onKeyDown.bind(this);
   }
 
   onFocus() {
@@ -33,10 +34,22 @@ class inlineMathSpan extends Component {
     setEditorState(editorState);
   }
 
+  onKeyDown(key) {
+    if (key === 'ArrowDown') {
+
+    }
+    else if (key === 'ArrowUp') {
+
+    }
+  }
+
   onBlur(editorState, selectionState, currentContent) {
     const { setReadOnly, getEditorRef } = this.props.getStore();
     setReadOnly(false);
-    getEditorRef().refs.editor.focus();
+    var editorRef = getEditorRef();
+    if (editorRef) {
+      editorRef.refs.editor.focus();
+    }
 
     currentContent = currentContent.mergeEntityData(this.props.entityKey, { raw_math: this.mathfield.latex() });
     editorState = EditorState.push(editorState, currentContent, 'change-block-data');
@@ -168,6 +181,11 @@ class inlineMathSpan extends Component {
     return (
       <styledMathSpan
         id={`${blockKey}_${this.props.entityKey}`}
+        // onKeyDown={(e) => this.decorate(this.onKeyDown, e.key)}
+        onKeyDown={(e) => {
+          if (e.key === 'ArrowDown') this.decorate(this.moveOutOf, 1);
+          if (e.key === 'ArrowUp') this.decorate(this.moveOutOf, -1);
+        }}
         style={{
           // backgroundColor: this.state.active ? "#dedede" : "#efefef",
           backgroundColor: this.state.active ? "red" : "#efefef",
