@@ -51,24 +51,24 @@ class inlineMathSpan extends Component {
       editorRef.refs.editor.focus();
     }
 
-    currentContent = currentContent.mergeEntityData(this.props.entityKey, { raw_math: this.mathfield.latex() });
+    currentContent = currentContent.mergeEntityData(this.state.entityKey, { raw_math: this.mathfield.latex() });
     editorState = EditorState.push(editorState, currentContent, 'change-block-data');
     return editorState;
   }
 
   moveOutOf(editorState, selectionState, currentContent, direction, remove) {
-    editorState = this.onBlur(editorState, selectionState, currentContent);
+    var editorState = this.onBlur(editorState, selectionState, currentContent);
     if (direction === 1 || direction === -1) {
       /* re-focus main editor */
 
       /* find blockKey, entityKey, and offset */
-      var block = currentContent.getBlockForKey(this.blockKey);
-      var offset = 0;
+      var block = currentContent.getBlockForKey(this.state.blockKey);
       var blockKey = selectionState.getAnchorKey();
+      var offset = 0;
       if (block) {
         const len = block.getText().length;
-        for (var i = 0; i < len; i++) {
-          if (block.getEntityAt(i) === this.props.entityKey) {
+        for (let i = 0; i < len; i += 1) {
+          if (block.getEntityAt(i) === this.state.entityKey) {
             blockKey = block.getKey();
             offset = i;
             break;
@@ -78,9 +78,9 @@ class inlineMathSpan extends Component {
       else {
         block = currentContent.getFirstBlock();
         while (block) {
-          let len = block.getText().length;
-          for (var i = 0; i < len; i++) {
-            if (block.getEntityAt(i) === this.props.entityKey) {
+          const len = block.getText().length;
+          for (let i = 0; i < len; i += 1) {
+            if (block.getEntityAt(i) === this.state.entityKey) {
               blockKey = block.getKey();
               offset = i;
               break;
@@ -89,11 +89,11 @@ class inlineMathSpan extends Component {
           block = currentContent.getBlockAfter(block.getKey());
         }
       }
-      this.blockKey = blockKey;
+      this.setState({ blockKey });
 
-      //^^^ offset = beginning of entity
-      offset = offset + 1;
-      //vvv offset = entity
+      // ^^^ offset = beginning of entity
+      offset += 1;
+      // vvv offset = entity
 
       // if moving forward and at end, insert space to let user exit mathfield.
       if (direction === 1 && offset === block.getText().length) {
@@ -104,7 +104,7 @@ class inlineMathSpan extends Component {
             focusOffset: offset
           }),
           ' '
-        )
+        );
       }
 
       // if deleting out of empty mathfield, delete the field
@@ -122,7 +122,7 @@ class inlineMathSpan extends Component {
       // Move selectionState to location right before entity.
       // offset = beginning of entity if left/direction = -1
       // offset = end of entity if right/direction = 1
-      offset = offset + direction;
+      offset += direction;
       if (direction === -1 && offset > 0) {
         offset -= 1;
       }
@@ -139,18 +139,18 @@ class inlineMathSpan extends Component {
       if (newContent) {
         return EditorState.push(newState, newContent, 'insert-characters');
       }
-      return newState
+      return newState;
     }
   }
 
   componentDidMount() {
-    const element = document.getElementById(`${this.blockKey}_${this.props.entityKey}`);
+    const element = document.getElementById(`${this.state.blockKey}_${this.state.entityKey}`);
     const mathfield = MQ.MathField(element, {
       handlers: {
         // edit: (mathfield) => console.log("edited", mathfield),
         // selectOutOf: (direction, mathField) => console.log("selectedOutOf", direction, mathField),
-        enter: (mathfield) => this.decorate(this.moveOutOf, 1),
-        moveOutOf: (direction, mathField) => this.decorate(this.moveOutOf, direction),
+        enter: () => this.decorate(this.moveOutOf, 1),
+        moveOutOf: (direction) => this.decorate(this.moveOutOf, direction),
         deleteOutOf: (direction, mathField) => this.decorate(this.moveOutOf, -1, mathField)
       }
     });
@@ -161,26 +161,32 @@ class inlineMathSpan extends Component {
     mathfield.latex(data.raw_math);
     this.data = data.raw_math;
     this.mathfield = mathfield;
+
+    const blockKey = editorState.getSelection().getAnchorKey();
+    const entityKey = this.props.entityKey;
+    this.setState({ blockKey, entityKey });
   }
 
   componentDidUpdate() {
-    if (this.mathfield) {
-      const editorState = this.props.getEditorState();
-      const currentContent = editorState.getCurrentContent();
-      const data = currentContent.getEntity(this.props.entityKey).getData();
-
+    const editorState = this.props.getEditorState();
+    const selectionState = editorState.getSelection();
+    const currentContent = editorState.getCurrentContent();
+    const blockKey = selectionState.getAnchorKey();
+    const selectionLocation = selectionState.getAnchorOffset() - 2;
+    const block = currentContent.getBlockForKey(blockKey);
+    const entityKey = block.getEntityAt(selectionLocation);
+    if ((this.state.blockKey !== blockKey || this.state.entityKey !== entityKey) && this.mathfield) {
+      this.setState({ blockKey, entityKey });
+      const data = currentContent.getEntity(this.state.entityKey).getData();
       this.mathfield.latex(data.raw_math);
     }
   }
 
   render() {
-    const editorState = this.props.getEditorState();
-    const blockKey = editorState.getSelection().getAnchorKey();
-    this.blockKey = blockKey;
-
+    const id = `${this.state.blockKey}_${this.state.entityKey}`;
     return (
       <styledMathSpan
-        id={`${blockKey}_${this.props.entityKey}`}
+        id={id}
         // onKeyDown={(e) => this.decorate(this.onKeyDown, e.key)}
         onKeyDown={(e) => {
           if (e.key === 'ArrowDown') this.decorate(this.moveOutOf, 1);
@@ -188,20 +194,19 @@ class inlineMathSpan extends Component {
         }}
         style={{
           // backgroundColor: this.state.active ? "#dedede" : "#efefef",
-          backgroundColor: this.state.active ? "red" : "#efefef",
-          border: "none",
-          boxShadow: "none",
-          transition: "0.25s ease",
-          ":hover": {
-            backgroundColor: "#dedede",
-            transition: "0.25s ease"
+          backgroundColor: this.state.active ? 'red' : '#efefef',
+          border: 'none',
+          boxShadow: 'none',
+          transition: '0.25s ease',
+          ':hover': {
+            backgroundColor: '#dedede',
+            transition: '0.25s ease'
           }
         }}
         onFocus={this.onFocus}
         onBlur={() => this.decorate(this.onBlur)}
-      >
-      </styledMathSpan>
-    )
+      />
+    );
   }
 }
 

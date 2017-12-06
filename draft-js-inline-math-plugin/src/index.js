@@ -131,6 +131,7 @@ const createInlineMathPlugin = (config) => {
     const blockKey = selectionState.getAnchorKey();
     const block = currentContent.getBlockForKey(blockKey);
     console.log(`blockKey=${blockKey}`)
+    console.log(`selectionAnchorOffset=${selectionState.getAnchorOffset()}`)
 
     // const editorState = store.getEditorState();
     // const currentContent = editorState.getCurrentContent();
